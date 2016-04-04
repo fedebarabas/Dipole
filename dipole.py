@@ -7,6 +7,10 @@ radiation (near field + far field) and the near field radiation only
 """
 
 import numpy as np
+from scipy.integrate import quad
+from scipy.special import jv
+import matplotlib.pyplot as plt
+
 c = 299792458.
 pi = np.pi
 mu0 = 4*pi*1e-7
@@ -212,9 +216,8 @@ def hertz_dipole_nf(r, p, R, phi, f, t=0, epsr=1.):
                        np.sum(Bz, axis=0)))
     return E, B
 
-if __name__ == "__main__":
 
-    import matplotlib.pyplot as plt
+def plot_hertz():
 
     # observation points
     nx = 401
@@ -254,7 +257,7 @@ if __name__ == "__main__":
                 E, B = hertz_dipole_ff(r, p, R, phi, f, t[k], epsr=1.)
                 S = np.real(E)**2    # 0.5*np.cross(E.T, conjugate(B.T))
                 P[i, j] = sum(S)
-        print(('%2.1f/100' % ((k+1)/nt*100)))
+#        print(('%2.1f/100' % ((k+1)/nt*100)))
         # Radiation diagram
     fig = plt.figure()
     plt.pcolormesh(x, z, P[:, :].T, cmap='hot')
@@ -270,3 +273,32 @@ if __name__ == "__main__":
 #        fig.savefig(fname+'.png', bbox='tight')
     plt.show()
 #        plt.clf()
+
+
+@np.vectorize
+def psf(r, z=0, lamb=670e-09):
+
+    k = 2*pi/lamb
+
+    def real_func(x):
+        return scipy.real(func(x))
+    def imag_func(x):
+        return scipy.imag(func(x))
+    real_integral = quad(real_func, a, b, **kwargs)
+    imag_integral = quad(imag_func, a, b, **kwargs)
+
+    def integrand(th):
+        j0 = jv(0, k*r*np.sin(th))
+        return np.sqrt(np.cos(th))*j0*np.exp(-1j*k*z*np.cos(th))*np.sin(th)
+
+    result = quad(integrand, 0, 1.2)
+    return result
+
+if __name__ == "__main__":
+
+    r = np.arange(-1, 1, 0.01)*1e-06
+    z = np.arange(-1, 1, 0.01)*1e-06
+
+    h = psf(r)
+#    plt.plot(r*1000000, np.sqrt(h[0]**2+h[1]**2)**2)
+    plt.plot(r*1000000, h[0])
