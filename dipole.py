@@ -9,7 +9,11 @@ radiation (near field + far field) and the near field radiation only
 import numpy as np
 from scipy.integrate import quad
 from scipy.special import jv
+import scipy.interpolate
 import matplotlib.pyplot as plt
+# from mpl_toolkits.mplot3d import axes3d, Axes3D
+from matplotlib import cm
+from matplotlib.ticker import LinearLocator, FormatStrFormatter
 
 c = 299792458.
 pi = np.pi
@@ -259,9 +263,9 @@ def plot_hertz():
                 P[i, j] = sum(S)
 #        print(('%2.1f/100' % ((k+1)/nt*100)))
         # Radiation diagram
-    fig = plt.figure()
+    plt.figure()
     plt.pcolormesh(x, z, P[:, :].T, cmap='hot')
-    fname = 'img_%s' % (k)
+#    fname = 'img_%s' % (k)
     plt.clim(0, 1000)
     plt.axis('scaled')
     plt.xlim(-xmax, xmax)
@@ -275,30 +279,78 @@ def plot_hertz():
 #        plt.clf()
 
 
-@np.vectorize
-def psf(r, z=0, lamb=670e-09):
+def psf(r, z, lamb=670e-09):
+    """ Widefield PSF. The integral is real, so in this case I don't need to
+    separate in real and imaginary integrals."""
 
     k = 2*pi/lamb
 
-    def real_func(x):
-        return scipy.real(func(x))
-    def imag_func(x):
-        return scipy.imag(func(x))
-    real_integral = quad(real_func, a, b, **kwargs)
-    imag_integral = quad(imag_func, a, b, **kwargs)
-
-    def integrand(th):
+    def func(th):
         j0 = jv(0, k*r*np.sin(th))
         return np.sqrt(np.cos(th))*j0*np.exp(-1j*k*z*np.cos(th))*np.sin(th)
 
-    result = quad(integrand, 0, 1.2)
-    return result
+#    def real_func(x):
+#        return scipy.real(func(x))
+#    def imag_func(x):
+#        return scipy.imag(func(x))
+#    real_int = quad(real_func, 0, 1.2)
+#    imag_int = quad(imag_func, 0, 1.2)
+#    return np.sqrt(real_int[0]**2 + imag_int[0]**2)**2
+
+    result = quad(func, 0, 1.2)
+    return result[0]**2
+
+
+def plot_psf(r, z, h):
+
+    fig = plt.figure()
+    ax = fig.gca(projection='3d')
+    surf = ax.plot_surface(r*1e6, z*1e6, h, rstride=1, cstride=1,
+                           cmap=cm.coolwarm, linewidth=0, antialiased=False)
+    ax.zaxis.set_major_locator(LinearLocator(10))
+    ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
+    fig.colorbar(surf, shrink=0.5, aspect=5)
+
+    plt.show()
+
+
+def cyl_to_cart(r_coord, theta_coord, phi_coord, data):
+    rflat = np.array(r_coord.flat)
+    tflat = np.array(theta_coord.flat)
+    pflat = np.array(phi_coord.flat)
+    coordpoints = np.concatenate([rflat[:, np.newaxis], tflat[:, np.newaxis],
+                                  pflat[:, np.newaxis]], axis=1)
+    rtpinterpolator = scipy.interpolate.linearNDInterpolate(coordpoints, density.flat)
+
+
+def sph_to_cart(r_coord, theta_coord, phi_coord, data):
+    rflat = np.array(r_coord.flat)
+    tflat = np.array(theta_coord.flat)
+    pflat = np.array(phi_coord.flat)
+    coordpoints = np.concatenate([rflat[:, np.newaxis], tflat[:, np.newaxis],
+                                  pflat[:, np.newaxis]], axis=1)
+    rtpinterpolator = scipy.interpolate.linearNDInterpolate(coordpoints, density.flat)
+
+
+def xyz2rtp(x, y, z):
+    r = np.sqrt(x**2 + y**2 + z**2)
+    t = np.acos(z/r)
+    p = np.atan2(y, x)
+    return (r, t, p)
+
+# now you can get the interpolated value for any (x,y,z) coordinate you want.
+val = rtpinterpolator(xyz2rtp(x, y, z))
 
 if __name__ == "__main__":
 
-    r = np.arange(-1, 1, 0.01)*1e-06
-    z = np.arange(-1, 1, 0.01)*1e-06
+    rmax = 1
+    zmax = 2
+    n = 100
+    dr, dz = rmax/n, zmax/n
+    r, z = np.mgrid[0:rmax:dr, -zmax:zmax:dz]*1e-06
+    r = r.T
+    z = z.T
 
-    h = psf(r)
-#    plt.plot(r*1000000, np.sqrt(h[0]**2+h[1]**2)**2)
-    plt.plot(r*1000000, h[0])
+    h = np.array([psf(ri, zi) for (ri, zi) in zip(r.ravel(), z.ravel())])
+    h = h.reshape(r.shape)
+#    plot_psf(r, z, h)
