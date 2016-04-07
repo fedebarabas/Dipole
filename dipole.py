@@ -314,13 +314,44 @@ def plot_psf(r, z, h):
     plt.show()
 
 
-def cyl_to_cart(r_coord, theta_coord, phi_coord, data):
-    rflat = np.array(r_coord.flat)
-    tflat = np.array(theta_coord.flat)
-    pflat = np.array(phi_coord.flat)
-    coordpoints = np.concatenate([rflat[:, np.newaxis], tflat[:, np.newaxis],
-                                  pflat[:, np.newaxis]], axis=1)
-    rtpinterpolator = scipy.interpolate.linearNDInterpolate(coordpoints, density.flat)
+def plot_zslice(h, z):
+
+    thetas = np.radians(np.linspace(0, 360, h[z].shape[1]))
+    rhos = np.arange(0, 1, 0.01)    # [um]
+    xx, yy = np.meshgrid(thetas, rhos)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111, polar=True)
+    ax.pcolormesh(xx, yy, h[z])
+    plt.show()
+
+
+def plot_xslice(h, x):
+
+    data = h[:, :, x]
+    h2 = np.zeros((data.shape[0], 2*data.shape[1]))
+    h2[:, 0.5*h2.shape[1]:] = data
+    h2[:, :0.5*h2.shape[1]:] = np.fliplr(data)
+
+    plt.imshow(h2, interpolation='None')
+
+
+def cyl_to_cart(rho_coord, theta_coord, z_coord, data):
+    rhoflat = np.array(rho_coord.flat)
+    theflat = np.array(theta_coord.flat)
+    zflat = np.array(z_coord.flat)
+    coordpoints = np.concatenate([rhoflat[:, np.newaxis],
+                                  theflat[:, np.newaxis],
+                                  zflat[:, np.newaxis]], axis=1)
+    rtz_interpolator = scipy.interpolate.LinearNDInterpolator(coordpoints,
+                                                              data.flat)
+    return rtz_interpolator
+
+
+def xyz2rtz(x, y, z):
+    rho = np.sqrt(x**2 + y**2)
+    theta = np.arctan(y/z)
+    return (rho, theta, z)
 
 
 def sph_to_cart(r_coord, theta_coord, phi_coord, data):
@@ -329,28 +360,42 @@ def sph_to_cart(r_coord, theta_coord, phi_coord, data):
     pflat = np.array(phi_coord.flat)
     coordpoints = np.concatenate([rflat[:, np.newaxis], tflat[:, np.newaxis],
                                   pflat[:, np.newaxis]], axis=1)
-    rtpinterpolator = scipy.interpolate.linearNDInterpolate(coordpoints, density.flat)
+    rtp_interpolator = scipy.interpolate.LinearNDInterpolator(coordpoints,
+                                                              data.flat)
+    return rtp_interpolator
 
 
 def xyz2rtp(x, y, z):
     r = np.sqrt(x**2 + y**2 + z**2)
     t = np.acos(z/r)
-    p = np.atan2(y, x)
+    p = np.arctan2(y, x)
     return (r, t, p)
 
+
+datac = np.zeros((100, 100, 100))
+for (xi, yi, zi) in zip(xx.ravel(), yy.ravel(), zz.ravel()):
+    datac[int(xi*1e08), int(yi*1e08), int(zi*1e08)] = rtp_interpolator(xyz2rtz(xi, yi, zi))
+
+
 # now you can get the interpolated value for any (x,y,z) coordinate you want.
-val = rtpinterpolator(xyz2rtp(x, y, z))
+# val = rtpinterpolator(xyz2rtp(x, y, z))
 
 if __name__ == "__main__":
 
-    rmax = 1
-    zmax = 2
+    rhomax = 1e-06
+    zmax = 2e-06
     n = 100
-    dr, dz = rmax/n, zmax/n
-    r, z = np.mgrid[0:rmax:dr, -zmax:zmax:dz]*1e-06
-    r = r.T
+    drho, dz, dtheta = rhomax/n, zmax/n, 2*pi/n
+    rho, z = np.mgrid[0:rhomax:drho, -zmax:zmax:dz]
+    rho = rho.T
     z = z.T
 
-    h = np.array([psf(ri, zi) for (ri, zi) in zip(r.ravel(), z.ravel())])
-    h = h.reshape(r.shape)
+    h = np.array([psf(ri, zi) for (ri, zi) in zip(rho.ravel(), z.ravel())])
+    h = h.reshape(rho.shape)
+
+    # This problem has theta symmetry
+    h2 = np.zeros((h.shape[0], 100, h.shape[1]))
+    for (x, y), value in np.ndenumerate(h):
+        h2[x, :, y] = h[x, y]
+
 #    plot_psf(r, z, h)
