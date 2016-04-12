@@ -372,9 +372,9 @@ def xyz2rtp(x, y, z):
     return (r, t, p)
 
 
-datac = np.zeros((100, 100, 100))
-for (xi, yi, zi) in zip(xx.ravel(), yy.ravel(), zz.ravel()):
-    datac[int(xi*1e08), int(yi*1e08), int(zi*1e08)] = rtp_interpolator(xyz2rtz(xi, yi, zi))
+#datac = np.zeros((100, 100, 100))
+#for (xi, yi, zi) in zip(xx.ravel(), yy.ravel(), zz.ravel()):
+#    datac[int(xi*1e08), int(yi*1e08), int(zi*1e08)] = rtp_interpolator(xyz2rtz(xi, yi, zi))
 
 
 # now you can get the interpolated value for any (x,y,z) coordinate you want.
@@ -382,16 +382,21 @@ for (xi, yi, zi) in zip(xx.ravel(), yy.ravel(), zz.ravel()):
 
 if __name__ == "__main__":
 
-    rhomax = 1e-06
-    zmax = 2e-06
-    n = 100
-    drho, dz, dtheta = rhomax/n, zmax/n, 2*pi/n
-    rho, z = np.mgrid[0:rhomax:drho, -zmax:zmax:dz]
-    rho = rho.T
-    z = z.T
+    # Cylindrical coordinates
+#    rhomax = 1e-06
+#    zmax = 2e-06
+#    n = 100
+#    drho, dz, dtheta = rhomax/n, zmax/n, 2*pi/n
+#    rho, z = np.mgrid[0:rhomax:drho, -zmax:zmax:dz]
+#    rho = rho.T
+#    z = z.T
+#    h = np.array([psf(ri, zi) for (ri, zi) in zip(rho.ravel(), z.ravel())])
+#    h = h.reshape(rho.shape)
 
-    h = np.array([psf(ri, zi) for (ri, zi) in zip(rho.ravel(), z.ravel())])
-    h = h.reshape(rho.shape)
+    # Spherical coordinates
+    rmax = 1   # [um]
+    n = 100
+    dr, dtheta, dphi = rmax/n, 2*pi/n, pi/n
 
     # This problem has theta symmetry
     h2 = np.zeros((h.shape[0], 100, h.shape[1]))
