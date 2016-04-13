@@ -279,14 +279,14 @@ def plot_hertz():
 #        plt.clf()
 
 
-def psf(r, z, lamb=670e-09):
+def psf_cyl(rho, z, lamb=670e-03):
     """ Widefield PSF. The integral is real, so in this case I don't need to
     separate in real and imaginary integrals."""
 
     k = 2*pi/lamb
 
     def func(th):
-        j0 = jv(0, k*r*np.sin(th))
+        j0 = jv(0, k*rho*np.sin(th))
         return np.sqrt(np.cos(th))*j0*np.exp(-1j*k*z*np.cos(th))*np.sin(th)
 
 #    def real_func(x):
@@ -296,6 +296,20 @@ def psf(r, z, lamb=670e-09):
 #    real_int = quad(real_func, 0, 1.2)
 #    imag_int = quad(imag_func, 0, 1.2)
 #    return np.sqrt(real_int[0]**2 + imag_int[0]**2)**2
+
+    result = quad(func, 0, 1.2)
+    return result[0]**2
+
+
+def psf_sph(r, theta, phi, lamb=670e-06):
+    """ Widefield PSF. The integral is real, so in this case I don't need to
+    separate in real and imaginary integrals."""
+
+    k = 2*pi/lamb
+
+    def func(th):
+        j0 = jv(0, k*r*np.sin(phi)*np.sin(th))
+        return np.sqrt(np.cos(th))*j0*np.exp(-1j*k*r*np.cos(phi)*np.cos(th))*np.sin(th)
 
     result = quad(func, 0, 1.2)
     return result[0]**2
@@ -372,9 +386,10 @@ def xyz2rtp(x, y, z):
     return (r, t, p)
 
 
-#datac = np.zeros((100, 100, 100))
-#for (xi, yi, zi) in zip(xx.ravel(), yy.ravel(), zz.ravel()):
-#    datac[int(xi*1e08), int(yi*1e08), int(zi*1e08)] = rtp_interpolator(xyz2rtz(xi, yi, zi))
+# datac = np.zeros((200, 200, 200))
+# xx, yy, zz = np.mgrid[-1:1:0.01, -1:1:0.01, -1:1:0.01]
+# for (xi, yi, zi) in zip(xx.ravel(), yy.ravel(), zz.ravel()):
+#     datac[int(xi*1e08), int(yi*1e08), int(zi*1e08)] = rtp_interpolator(xyz2rtz(xi, yi, zi))
 
 
 # now you can get the interpolated value for any (x,y,z) coordinate you want.
@@ -383,24 +398,28 @@ def xyz2rtp(x, y, z):
 if __name__ == "__main__":
 
     # Cylindrical coordinates
-#    rhomax = 1e-06
-#    zmax = 2e-06
-#    n = 100
-#    drho, dz, dtheta = rhomax/n, zmax/n, 2*pi/n
-#    rho, z = np.mgrid[0:rhomax:drho, -zmax:zmax:dz]
-#    rho = rho.T
-#    z = z.T
-#    h = np.array([psf(ri, zi) for (ri, zi) in zip(rho.ravel(), z.ravel())])
-#    h = h.reshape(rho.shape)
-
-    # Spherical coordinates
-    rmax = 1   # [um]
+    rhomax = 1      # [um]
+    zmax = 2
     n = 100
-    dr, dtheta, dphi = rmax/n, 2*pi/n, pi/n
+    drho, dz, dtheta = rhomax/n, zmax/n, 2*pi/n
+    rho, z = np.mgrid[0:rhomax:drho, -zmax:zmax:dz]
+    h = np.array([psf_cyl(ri, zi) for (ri, zi) in zip(rho.ravel(), z.ravel())])
+    h = h.reshape(rho.shape)
 
     # This problem has theta symmetry
-    h2 = np.zeros((h.shape[0], 100, h.shape[1]))
+    h2 = np.zeros((h.shape[0], n, h.shape[1]))
     for (x, y), value in np.ndenumerate(h):
         h2[x, :, y] = h[x, y]
 
+    # Coordinates redefinition
+    rho, theta, z = np.mgrid[0:rhomax:drho, 0:2*pi:2*pi/n, -zmax:zmax:dz]
+
 #    plot_psf(r, z, h)
+
+#    # Spherical coordinates
+#    rmax = 1   # [um]
+#    n = 100
+#    dr, dtheta, dphi = rmax/n, 2*pi/n, pi/n
+#    r, theta, phi = np.mgrid[0:rmax:dr, 0:2*pi:2*pi/n, 0:pi:pi/n]
+#    h = np.array([psf_sph(ri, thi, phii) for (ri, thi, phii) in zip(r.ravel(), theta.ravel(), phi.ravel())])
+#    h = h.reshape(r.shape)
